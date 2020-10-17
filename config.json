@@ -1,0 +1,5 @@
+{
+	"Addr": "localhost:8789",
+	"Key": "key",
+	"StateFile": "state.json"
+}
