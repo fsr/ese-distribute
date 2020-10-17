@@ -8,6 +8,7 @@ import (
     "net/http"
     "sync"
     "os"
+    "strconv"
 )
 
 type State struct {
@@ -49,8 +50,75 @@ func handleFree(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    state.Rooms[url] += 1;
+    count, err := strconv.Atoi(r.FormValue("count"))
+    if err != nil || count <= 0 {
+        w.WriteHeader(http.StatusInternalServerError)
+        return
+    }
+
+    state.Rooms[url] += count;
     log.Printf("free %s", r.FormValue("url"))
+    data, _ := json.Marshal(state.Rooms)
+    w.Write(data)
+    persistState()
+}
+
+func handleDelete(w http.ResponseWriter, r *http.Request) {
+    state.M.Lock()
+    defer state.M.Unlock()
+
+    keys, present := r.URL.Query()["key"]
+    if !present || len(keys) != 1 || keys[0] != config.Key {
+        w.WriteHeader(http.StatusUnauthorized)
+        return
+    }
+
+    url := r.FormValue("url")
+    if url == "" {
+        w.WriteHeader(http.StatusInternalServerError)
+        return
+    }
+
+    delete(state.Rooms, url)
+
+    log.Printf("delete %s", r.FormValue("url"))
+    data, _ := json.Marshal(state.Rooms)
+    w.Write(data)
+    persistState()
+}
+
+func handleRegister(w http.ResponseWriter, r *http.Request) {
+    state.M.Lock()
+    defer state.M.Unlock()
+
+    keys, present := r.URL.Query()["key"]
+    if !present || len(keys) != 1 || keys[0] != config.Key {
+        w.WriteHeader(http.StatusUnauthorized)
+        return
+    }
+
+    url := r.FormValue("url")
+    if url == "" {
+        w.WriteHeader(http.StatusInternalServerError)
+        return
+    }
+
+    count, err := strconv.Atoi(r.FormValue("count"))
+    if err != nil || count <= 0 {
+        w.WriteHeader(http.StatusInternalServerError)
+        return
+    }
+
+    _, exists := state.Rooms[url]
+    if exists {
+        w.WriteHeader(http.StatusConflict)
+        return
+    }
+    state.Rooms[url] = count;
+
+    log.Printf("register %s", r.FormValue("url"))
+    data, _ := json.Marshal(state.Rooms)
+    w.Write(data)
     persistState()
 }
 
@@ -75,6 +143,7 @@ func handlePoll(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    log.Printf("offer %s", roomBest)
     state.Rooms[roomBest] -= 1;
     fmt.Fprintf(w, "%s", roomBest)
     persistState()
@@ -117,6 +186,8 @@ func main() {
     http.HandleFunc("/api/poll", handlePoll)
     http.HandleFunc("/api/free", handleFree)
     http.HandleFunc("/api/state", handleState)
+    http.HandleFunc("/api/delete", handleDelete)
+    http.HandleFunc("/api/register", handleRegister)
     log.Printf("listening on %s", config.Addr)
     http.ListenAndServe(config.Addr, nil)
 }

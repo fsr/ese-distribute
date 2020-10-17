@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="style.css">
+    <script src="manage.js"></script>
+    <title>Distribute</title>
+<style>
+    li#start a {
+        cursor: pointer;
+    }
+    li#pairing {
+        display: none;
+    }
+
+ .line {
+     display: flex;
+     align-items: center;
+ }
+
+.hidden {
+     display: none;
+ }
+</style>
+</head>
+<body>
+    <main id="page-content" class="hidden">
+        <div class="grid-container">
+            <div class="grid-x grid-padding-x">
+                <div class="cell">
+                    <h1>Distribute</h1>
+
+                    <form id="selectDiv" class="line" onsubmit="return select()">
+                        <label>Room URL:</label>
+                        <input id="urlInput" type="text" style="margin-left: 2rem;">
+                        <input type="submit" class="btn" style="margin-left: 2rem; cursor: pointer" value="Manage">
+                    </form>
+
+                    <div id="statusDiv">
+                        <h2 class="line">
+                            Room Status
+                            <form id="addButton" class="hidden" onsubmit="return add(1)" style="margin-left: 1rem;">
+                                <input type="submit" class="btn" value="Add one slot" style="cursor: pointer;">
+                            </form>
+                        </h2>
+
+                        <div id="singleRoomDiv" class="hidden">
+                        <p>Room: <a id="roomURL"></a></p>
+                        <p>Free slots: <span id="freeCount"></span></p>
+                        <p>
+                            <form onsubmit="return deleteRoom()" style="margin-top: 1rem;">
+                                <input type="submit" class="btn" value="Delete room" style="cursor: pointer;">
+                            </form>
+                        </p>
+                        </div>
+
+                        <div id="links">
+                        </div>
+                    </div>
+
+                    <div id="registerDiv">
+                        <h2>Register new room with many free slots</h2>
+                        <form onsubmit="return register(urlInputManySlots.value)">
+                            <label>Room URL:</label>
+                            <input id="urlInputManySlots" type="text" style="margin-left: 2rem;">
+                            <input type="submit" class="btn" style="margin-left: 2rem; cursor: pointer" value="Create">
+                    </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>
