@@ -1,12 +1,25 @@
+var uuid = "";
 var polling = false;
 
 function start() {
     if (polling == true) {
         return;
     }
-    polling = true;
-    document.getElementById("start").setAttribute("style", "display: none");
-    document.getElementById("pairing").setAttribute("style", "display: inline");
+    var req = new XMLHttpRequest();
+    req.open("POST", "/api/register_client", true);
+    req.onreadystatechange = function () {
+        if (this.readyState == 4 && this.status == 200) {
+            if (polling == true) {
+                return;
+            }
+            uuid = req.responseText;
+            console.log(uuid);
+            polling = true;
+            document.getElementById("start").setAttribute("style", "display: none");
+            document.getElementById("pairing").setAttribute("style", "display: inline");
+        }
+    }
+    req.send(null);
 }
 
 function poll() {
@@ -37,7 +50,7 @@ function poll() {
         }
     }
 
-    req.send();
+    req.send("uuid="+uuid);
 }
 
 setInterval(poll, 2000);

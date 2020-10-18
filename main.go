@@ -9,11 +9,21 @@ import (
     "sync"
     "os"
     "strconv"
+    "time"
+    "github.com/segmentio/ksuid"
 )
 
 type State struct {
     M sync.Mutex
     Rooms map[string]int
+    WaitingClients []string
+    Clients map[string]*client
+}
+
+type client struct {
+    ID         string
+    LastAccess time.Time
+    Link       string
 }
 
 type Config struct {
@@ -33,6 +43,21 @@ func persistState() {
     }
 }
 
+func giveSlotToClient(url string) {
+    var waitingClient *client = nil
+    for waitingClient == nil {
+        if len(state.WaitingClients) == 0 {
+            return
+        }
+
+        uuid := state.WaitingClients[0]
+        state.WaitingClients = state.WaitingClients[1:]
+        waitingClient = state.Clients[uuid]
+    }
+    log.Printf("room %s reserved for %s", url, waitingClient.ID)
+    waitingClient.Link = url
+    state.Rooms[url] -= 1
+}
 
 func handleFree(w http.ResponseWriter, r *http.Request) {
     state.M.Lock()
@@ -58,6 +83,7 @@ func handleFree(w http.ResponseWriter, r *http.Request) {
 
     state.Rooms[url] += count;
     log.Printf("free %s", r.FormValue("url"))
+    giveSlotToClient(url)
     data, _ := json.Marshal(state.Rooms)
     w.Write(data)
     persistState()
@@ -87,7 +113,7 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
     persistState()
 }
 
-func handleRegister(w http.ResponseWriter, r *http.Request) {
+func handleRegisterRoom(w http.ResponseWriter, r *http.Request) {
     state.M.Lock()
     defer state.M.Unlock()
 
@@ -122,12 +148,40 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
     persistState()
 }
 
-func handlePoll(w http.ResponseWriter, r *http.Request) {
-    state.M.Lock()
-    defer state.M.Unlock()
+func cleanUp() {
+    for uuid, c := range state.Clients {
+        now := time.Now()
+        timeout, _ := time.ParseDuration("10s")
+        if now.Sub(c.LastAccess) > timeout {
+            log.Printf("Client %s too old", uuid)
+            // delete from client list
+            delete(state.Clients, uuid)
+            // free slot for room
+            if c.Link != "" {
+                state.Rooms[c.Link] += 1
+            }
+        }
+    }
+}
 
-    // search for room with most available spots
+func findRoom(uuid string) string {
+    cleanUp()
+
     var roomBest string
+    currentClient := state.Clients[uuid]
+    // uuid registered?
+    if currentClient == nil {
+        log.Printf("uuid %s not registered", uuid)
+        return "nouuid"
+    }
+    currentClient.LastAccess = time.Now()
+    // check if there is a reserved room
+    if currentClient.Link != "" {
+        log.Printf("room %s given to %s", currentClient.Link, currentClient.ID)
+        delete(state.Clients, uuid)
+        return currentClient.Link
+    }
+    // search for room with most available spots
     freeCountBest := 0
     for room, freeCount := range(state.Rooms) {
         if freeCount < freeCountBest {
@@ -139,13 +193,37 @@ func handlePoll(w http.ResponseWriter, r *http.Request) {
     }
 
     if freeCountBest == 0 {
-        fmt.Fprintf(w, "wait")
-        return
+        return "wait"
     }
-
-    log.Printf("offer %s", roomBest)
     state.Rooms[roomBest] -= 1;
-    fmt.Fprintf(w, "%s", roomBest)
+
+    log.Printf("room %s [%d] given to %s", roomBest, freeCountBest, currentClient.ID)
+    delete(state.Clients, uuid)
+    return roomBest
+
+
+}
+
+func handleRegisterClient(w http.ResponseWriter, r *http.Request) {
+    state.M.Lock()
+    defer state.M.Unlock()
+
+    uuid := ksuid.New().String()
+    log.Printf("uuid registered: %s", uuid)
+    currentClient := client{ID: uuid, LastAccess: time.Now(), Link: ""}
+    state.Clients[uuid] = &currentClient
+    state.WaitingClients = append(state.WaitingClients, uuid)
+    fmt.Fprintf(w, uuid)
+}
+
+func handlePoll(w http.ResponseWriter, r *http.Request) {
+    state.M.Lock()
+    defer state.M.Unlock()
+
+    room := findRoom(r.FormValue("uuid"))
+
+    fmt.Fprintf(w, "%s", room)
+
     persistState()
 }
 
@@ -181,13 +259,15 @@ func main() {
     } else {
         state.Rooms = make(map[string]int)
     }
+    state.Clients = make(map[string]*client)
 
     http.Handle("/", http.FileServer(http.Dir("static")))
     http.HandleFunc("/api/poll", handlePoll)
     http.HandleFunc("/api/free", handleFree)
     http.HandleFunc("/api/state", handleState)
     http.HandleFunc("/api/delete", handleDelete)
-    http.HandleFunc("/api/register", handleRegister)
+    http.HandleFunc("/api/register", handleRegisterRoom)
+    http.HandleFunc("/api/register_client", handleRegisterClient)
     log.Printf("listening on %s", config.Addr)
     http.ListenAndServe(config.Addr, nil)
 }
