@@ -193,7 +193,14 @@ func findRoom(uuid string) string {
     }
 
     if freeCountBest == 0 {
-        return "wait"
+        position := 0
+        for _, id := range state.WaitingClients {
+            position++
+            if id == uuid {
+                break
+            }
+        }
+        return "wait" + strconv.Itoa(position)
     }
     state.Rooms[roomBest] -= 1;
 

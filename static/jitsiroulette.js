@@ -16,6 +16,7 @@ function start() {
             console.log(uuid);
             polling = true;
             document.getElementById("start").setAttribute("style", "display: none");
+            document.getElementById("pairing-link").innerHTML = "Waiting for Room";
             document.getElementById("pairing").setAttribute("style", "display: inline");
         }
     }
@@ -35,7 +36,9 @@ function poll() {
             if (polling == false) {
                 return;
             }
-            if (req.responseText == "wait") {
+            if (req.responseText.startsWith("wait")) {
+                var position = req.responseText.substr(4)
+                document.getElementById("pairing-link").innerHTML = "Waiting for Room ... Position in Queue: " + position;
                 return;
             }
             if (req.responseText == "nouuid") {
