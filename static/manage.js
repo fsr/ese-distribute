@@ -62,7 +62,7 @@ function add(count) {
         }
     }
     url = document.location.hash.substr(1);
-    req.send("count=" + count + "&url=" + encodeURI(url));
+    req.send("count=" + count + "&url=" + encodeURIComponent(url));
     return false;
 }
 
@@ -80,7 +80,7 @@ function register(url) {
             alert("room already registered!");
         }
     }
-    req.send("count=" + 100000 + "&url=" + encodeURI(url));
+    req.send("count=" + 100000 + "&url=" + encodeURIComponent(url));
     return false;
 }
 
@@ -99,7 +99,7 @@ function deleteRoom() {
         }
     }
     url = document.location.hash.substr(1);
-    req.send("url=" + encodeURI(url));
+    req.send("url=" + encodeURIComponent(url));
     return false;
 }
 
