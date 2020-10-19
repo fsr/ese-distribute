@@ -30,10 +30,12 @@ type Config struct {
     Key string
     Addr string
     StateFile string
+    MetricsFile string
 }
 
 var state State
 var config Config
+var metricsFile *os.File
 
 func persistState() {
     data, _ := json.Marshal(state.Rooms)
@@ -220,6 +222,8 @@ func handleRegisterClient(w http.ResponseWriter, r *http.Request) {
     currentClient := client{ID: uuid, LastAccess: time.Now(), Link: ""}
     state.Clients[uuid] = &currentClient
     state.WaitingClients = append(state.WaitingClients, uuid)
+
+    fmt.Fprintf(metricsFile, "%d %d\n", time.Now().UnixNano(), len(state.WaitingClients))
     fmt.Fprintf(w, uuid)
 }
 
@@ -267,6 +271,12 @@ func main() {
         state.Rooms = make(map[string]int)
     }
     state.Clients = make(map[string]*client)
+
+    metricsFile, err = os.OpenFile(config.MetricsFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+    if err != nil {
+        log.Fatalf("error opening metrics file: %v", err)
+    }
+    defer metricsFile.Close()
 
     http.Handle("/", http.FileServer(http.Dir("static")))
     http.HandleFunc("/api/poll", handlePoll)
