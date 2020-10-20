@@ -165,7 +165,7 @@ func cleanUp() {
             }
             // refresh queue
             var newqueue []string
-            for _, cuuid := state.WaitingClients {
+	    for _, cuuid := range state.WaitingClients {
                 if cuuid != uuid {
                     newqueue = append(newqueue, cuuid)
                 }
