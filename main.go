@@ -4,6 +4,7 @@ import (
     "encoding/json"
     "fmt"
     "io/ioutil"
+    "bufio"
     "log"
     "net/http"
     "sync"
@@ -285,6 +286,31 @@ func main() {
         log.Fatalf("error opening metrics file: %v", err)
     }
     defer metricsFile.Close()
+ 
+    buf, err := os.Open("uuids.list")
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    defer func() {
+        if err = buf.Close(); err != nil {
+            log.Fatal(err)
+        }
+    }()
+
+    snl := bufio.NewScanner(buf)
+    for snl.Scan() {
+	uuid := snl.Text()
+    	currentClient := client{ID: uuid, LastAccess: time.Now(), Link: ""}
+    	state.Clients[uuid] = &currentClient
+    	state.WaitingClients = append(state.WaitingClients, uuid)
+        log.Printf("uuid importted: %s", uuid)
+    }
+    err = snl.Err()
+    if err != nil {
+        log.Fatal(err)
+    }
+
 
     http.Handle("/", http.FileServer(http.Dir("static")))
     http.HandleFunc("/api/poll", handlePoll)
