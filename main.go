@@ -153,7 +153,7 @@ func handleRegisterRoom(w http.ResponseWriter, r *http.Request) {
 func cleanUp() {
     for uuid, c := range state.Clients {
         now := time.Now()
-        timeout, _ := time.ParseDuration("10s")
+        timeout, _ := time.ParseDuration("30s")
         if now.Sub(c.LastAccess) > timeout {
             log.Printf("Client %s too old", uuid)
             // delete from client list
@@ -162,6 +162,14 @@ func cleanUp() {
             if c.Link != "" {
                 state.Rooms[c.Link] += 1
             }
+            // refresh queue
+            var newqueue []string
+            for _, cuuid := state.WaitingClients {
+                if cuuid != uuid {
+                    newqueue = append(newqueue, cuuid)
+                }
+            }
+            state.WaitingClients = newqueue
         }
     }
 }
@@ -202,7 +210,7 @@ func findRoom(uuid string) string {
                 break
             }
         }
-        return "wait" + strconv.Itoa(position)
+        return "wait" + strconv.Itoa(position) + " watch stream for entertainment"
     }
     state.Rooms[roomBest] -= 1;
 
